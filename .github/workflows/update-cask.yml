@@ -1,0 +1,82 @@
+name: Update Cask
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.1.13)'
+        required: true
+        type: string
+
+jobs:
+  update-cask:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update Cask with new version and SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION_CLEAN="${VERSION#v}"
+          DMG_URL="https://github.com/coollabsio/jean/releases/download/v${VERSION_CLEAN}/Jean_${VERSION_CLEAN}_universal.dmg"
+
+          echo "Downloading DMG from: $DMG_URL"
+          SHA256=$(curl -sL "$DMG_URL" | shasum -a 256 | awk '{ print $1 }')
+
+          if [ -z "$SHA256" ] || [ "$SHA256" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
+            echo "Error: Failed to download DMG or file is empty"
+            exit 1
+          fi
+
+          echo "Computed SHA256: $SHA256"
+
+          cat > Casks/jean.rb <<EOF
+          cask "jean" do
+            version "${VERSION_CLEAN}"
+            sha256 "${SHA256}"
+
+            url "https://github.com/coollabsio/jean/releases/download/v#{version}/Jean_#{version}_universal.dmg"
+            name "Jean"
+            desc "AI Assistant desktop application"
+            homepage "https://github.com/coollabsio/jean"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            depends_on macos: ">= :catalina"
+
+            app "Jean.app"
+
+            zap trash: [
+              "~/Library/Application Support/com.jean.desktop",
+              "~/Library/Caches/com.jean.desktop",
+              "~/Library/Preferences/com.jean.desktop.plist",
+              "~/Library/Saved Application State/com.jean.desktop.savedState",
+            ]
+          end
+          EOF
+
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' Casks/jean.rb
+
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          git add Casks/jean.rb
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+            git commit -m "chore: update Jean to ${VERSION}"
+            git push origin main
+          fi
