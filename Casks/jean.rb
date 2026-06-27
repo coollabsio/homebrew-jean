@@ -1,6 +1,6 @@
 cask "jean" do
-  version "0.1.59"
-  sha256 "ae7d3ad1f12cdd2694bca194d1e454c274a8fe667bda707c82a0129e613b67cf"
+  version "0.1.60"
+  sha256 "6d356df344c0a8bf18d30f58e87be5d5a3b0cf7e0e2d496c83b2e988937fb9f3"
 
   url "https://github.com/coollabsio/jean/releases/download/v#{version}/Jean_#{version}_universal.dmg"
   name "Jean"
